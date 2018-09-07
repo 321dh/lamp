@@ -193,7 +193,8 @@ If you enter '.', the field will be left blank.
           echo "${CWARNING}Syntax error! PS: export Ali_Key=LTq ; export Ali_Secret=0q5E${CEND}"
         fi
       done
-      ~/.acme.sh/acme.sh --issue --dns dns_${DNS_PRO} -d ${domain} -d ${moredomain}
+      [ "${moredomainame_flag}" == 'y' ] && moredomainame_D="$(for D in ${moredomainame}; do echo -d ${D}; done)"
+      ~/.acme.sh/acme.sh --issue --dns dns_${DNS_PRO} -d ${domain} ${moredomainame_D}
     else
       if [ "${nginx_ssl_flag}" == 'y' ]; then
         [ ! -d ${web_install_dir}/conf/vhost ] && mkdir ${web_install_dir}/conf/vhost
@@ -426,6 +427,7 @@ Nginx_anti_hotlinking() {
     else
       domain_allow_all=${domain_allow}
     fi
+    domain_allow_all=`echo ${domain_allow_all} | tr ' ' '\n' | awk '!a[$1]++' | xargs`
     anti_hotlinking=$(echo -e "location ~ .*\.(wma|wmv|asf|mp3|mmf|zip|rar|jpg|gif|png|swf|flv|mp4)$ {\n    valid_referers none blocked ${domain_allow_all};\n    if (\$invalid_referer) {\n        return 403;\n    }\n  }")
   else
     anti_hotlinking=
@@ -454,6 +456,7 @@ Nginx_rewrite() {
       rewrite="other"
     fi
     echo "You choose rewrite=${CMSG}$rewrite${CEND}"
+    [ "${NGX_FLAG}" == 'php' -a "${rewrite}" == "joomla" ] && NGX_CONF=$(echo -e "location ~ \\.php\$ {\n    #fastcgi_pass remote_php_ip:9000;\n    fastcgi_pass unix:/dev/shm/php-cgi.sock;\n    fastcgi_index index.php;\n    include fastcgi.conf;\n  }")
     [ "${NGX_FLAG}" == 'php' -a "${rewrite}" == "thinkphp" ] && NGX_CONF=$(echo -e "location ~ \.php {\n    #fastcgi_pass remote_php_ip:9000;\n    fastcgi_pass unix:/dev/shm/php-cgi.sock;\n    fastcgi_index index.php;\n    include fastcgi_params;\n    set \$real_script_name \$fastcgi_script_name;\n    if (\$fastcgi_script_name ~ \"^(.+?\.php)(/.+)\$\") {\n      set \$real_script_name \$1;\n      #set \$path_info \$2;\n    }\n    fastcgi_param SCRIPT_FILENAME \$document_root\$real_script_name;\n    fastcgi_param SCRIPT_NAME \$real_script_name;\n    #fastcgi_param PATH_INFO \$path_info;\n  }")
     [ "${NGX_FLAG}" == 'php' -a "${rewrite}" == "pathinfo" ] && NGX_CONF=$(echo -e "location / {\n    if (!-e \$request_filename) {\n      rewrite ^(.*)\$ /index.php?s=\$1 last;\n      break;\n    }\n  }\n\n  location ~ [^/]\.php(/|$) {\n    #fastcgi_pass remote_php_ip:9000;\n    fastcgi_pass unix:/dev/shm/php-cgi.sock;\n    fastcgi_index index.php;\n    include fastcgi.conf;\n    fastcgi_split_path_info ^(.+?\.php)(/.*)\$;\n    set \$path_info \$fastcgi_path_info;\n    fastcgi_param PATH_INFO \$path_info;\n    try_files \$fastcgi_script_name =404;\n  }")
     if [ "${rewrite}" != 'magento2' -a "${rewrite}" != 'pathinfo' ]; then
